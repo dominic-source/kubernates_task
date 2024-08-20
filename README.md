@@ -101,6 +101,10 @@ helm upgrade --install --namespace actions-runner-system --create-namespace\
   --set=authSecret.github_token="REPLACE_YOUR_TOKEN_HERE"\
   --wait actions-runner-controller actions-runner-controller/actions-runner-controller
 ```
+create alias for minikube
+```bash
+alias kubectl="minikube kubectl --"
+```
 
 ### 9. Configure the Runner Deployment
 Create a runnerdeployment.yaml file to define your runner deployment.
