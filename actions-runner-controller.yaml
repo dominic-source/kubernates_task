@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    meta.helm.sh/release-name: actions-runner-controller
+    meta.helm.sh/release-namespace: actions-runner-system
+  creationTimestamp: "2024-08-19T18:47:10Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/instance: actions-runner-controller
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: actions-runner-controller
+    app.kubernetes.io/version: 0.27.6
+    helm.sh/chart: actions-runner-controller-0.23.7
+  name: actions-runner-controller
+  namespace: actions-runner-system
+  resourceVersion: "5620"
+  uid: 00341a59-2d1d-4de1-b976-ae9a7b16f359
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: actions-runner-controller
+      app.kubernetes.io/name: actions-runner-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/instance: actions-runner-controller
+        app.kubernetes.io/name: actions-runner-controller
+    spec:
+      containers:
+      - args:
+        - --metrics-addr=127.0.0.1:8080
+        - --enable-leader-election
+        - --port=9443
+        - --sync-period=1m
+        - --default-scale-down-delay=10m
+        - --docker-image=docker:dind
+        - --runner-image=summerwind/actions-runner:latest
+        - --log-format=text
+        command:
+        - /manager
+        env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: github_token
+              name: controller-manager
+              optional: true
+        - name: GITHUB_APP_ID
+          valueFrom:
+            secretKeyRef:
+              key: github_app_id
+              name: controller-manager
+              optional: true
+        - name: GITHUB_APP_INSTALLATION_ID
+          valueFrom:
+            secretKeyRef:
+              key: github_app_installation_id
+              name: controller-manager
+              optional: true
+        - name: GITHUB_APP_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              key: github_app_private_key
+              name: controller-manager
+              optional: true
+        - name: GITHUB_BASICAUTH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: github_basicauth_password
+              name: controller-manager
+              optional: true
+        image: summerwind/actions-runner-controller:v0.27.6
+        imagePullPolicy: IfNotPresent
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        resources: {}
+        securityContext: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/actions-runner-controller
+          name: secret
+          readOnly: true
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=10
+        image: quay.io/brancz/kube-rbac-proxy:v0.13.1
+        imagePullPolicy: IfNotPresent
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: metrics-port
+          protocol: TCP
+        resources: {}
+        securityContext: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: actions-runner-controller
+      serviceAccountName: actions-runner-controller
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: secret
+        secret:
+          defaultMode: 420
+          secretName: controller-manager
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: actions-runner-controller-serving-cert
+      - emptyDir: {}
+        name: tmp
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2024-08-19T19:21:57Z"
+    lastUpdateTime: "2024-08-19T19:21:57Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2024-08-19T19:21:57Z"
+    lastUpdateTime: "2024-08-19T19:21:57Z"
+    message: ReplicaSet "actions-runner-controller-6f4c8db58" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1

@@ -1,0 +1,27 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: actions-runner-system
+  name: github-actions-runner-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "secrets"]
+  verbs: ["get", "list", "watch", "create", "delete", "update"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "delete", "update"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: github-actions-runner-rolebinding
+  namespace: actions-runner-system
+subjects:
+- kind: ServiceAccount
+  name: github-actions-runner
+  namespace: actions-runner-system
+roleRef:
+  kind: Role
+  name: github-actions-runner-role
+  apiGroup: rbac.authorization.k8s.io

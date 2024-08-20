@@ -1,0 +1,15 @@
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: example-runner-deployment
+  namespace: actions-runner-system
+spec:
+  replicas: 1
+  template:
+    spec:
+      repository: Cadaservices/hng_boilerplate_nextjs
+      serviceAccountName: github-actions-runner
+      labels:
+        - self-hosted
+        - linux
+        - x64
