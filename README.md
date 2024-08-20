@@ -1,4 +1,4 @@
-Steps:
+# The steps I applied in configuring a kubernates cluster using minikube
 
 1. Install minikube
 
@@ -100,12 +100,17 @@ helm upgrade --install --namespace actions-runner-system --create-namespace\
 apiVersion: actions.summerwind.dev/v1alpha1
 kind: RunnerDeployment
 metadata:
-  name: example-runnerdeploy
+  name: example-runner-deployment
+  namespace: actions-runner-system
 spec:
-  replicas: 1
   template:
     spec:
-      repository: mumoshu/actions-runner-controller-ci
+      repository: Cadaservices/hng_boilerplate_nextjs
+      serviceAccountName: github-actions-runner
+      labels:
+        - self-hosted
+        - linux
+        - x64
 ```
 
 9. Apply file to the kubernates cluster
@@ -158,4 +163,30 @@ roleRef:
 
 ```bash
 kubectl apply -f github-actions-runner-rbac.yaml
+```
+
+13. Configure horizontal scaling
+
+```yaml
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: HorizontalRunnerAutoscaler
+metadata:
+  name: example-runner-deployment-autoscaler
+  namespace: actions-runner-system
+spec:
+  scaleTargetRef:
+    kind: RunnerDeployment
+    name: example-runner-deployment
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: TotalNumberOfQueuedAndInProgressWorkflowRuns
+    repositoryNames:
+    - Cadaservices/hng_boilerplate_nextjs
+```
+
+14. Apply configuration
+
+```bash
+kubectl apply -f horizontalscaler.yaml
 ```
