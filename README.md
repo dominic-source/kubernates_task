@@ -1,39 +1,47 @@
-# The steps I applied in configuring a kubernates cluster using minikube
+# Kubernetes Cluster Configuration with Minikube for GitHub Actions Runners
 
-1. Install minikube
+## Overview
+
+This document outlines the steps to configure a Kubernetes cluster using Minikube on an AWS instance, set up a GitHub Actions Runner Controller, and implement horizontal scaling for dynamic runner management. The setup leverages Helm for package management and Kubernetes for orchestration, ensuring a scalable and reliable environment for CI/CD workflows.
+
+## Prerequisites
+
+- **AWS Instance**: Ensure you have an AWS instance with Ubuntu.
+- **Root Access**: Administrative privileges are required for software installation and configuration.
+- **GitHub Token**: A GitHub token with appropriate permissions to authenticate and manage runners.
+
+## Steps
+
+### 1. Install Minikube
+
+Minikube is used to create a local Kubernetes cluster on your AWS instance.
 
 ```bash
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
 sudo dpkg -i minikube_latest_amd64.deb
 ```
 
-2. Install kubectl
+### 2. Install kubectl
+kubectl is the Kubernetes command-line tool for interacting with your cluster.
+
 ```bash
 sudo apt-get update
-# apt-transport-https may be a dummy package; if so, you can skip that package
 sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
-# Download the public signing key for the Kubernetes package repositories. The same signing key is used for all repositories so you can disregard the version in the URL:
 
-# If the folder `/etc/apt/keyrings` does not exist, it should be created before the curl command, read the note below.
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
+sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
-# This overwrites any existing configuration in /etc/apt/sources.list.d/kubernetes.list
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
-sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list   # helps tools such as command-not-found to work correctly
+sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list
 
 sudo apt-get update
 sudo apt-get install -y kubectl
 ```
 
-3. install docker and start docker
-
-- Setup docker
+### 3. Install Docker
+Docker is required for containerization, which is essential for running Kubernetes pods.
 
 ```bash
-Set up Docker's apt repository.
-
-
 # Add Docker's official GPG key:
 sudo apt-get update
 sudo apt-get install ca-certificates curl
@@ -49,42 +57,42 @@ echo \
 sudo apt-get update
 ```
 
-- install docker
+```bash
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-```bash
- sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-```
-- add user to docker group and start docker
-```bash
 sudo usermod -aG docker ${USER}
 sudo service docker start
 ```
 
-4. Start minikube
+### 4. Start Minikube
+Initialize your Kubernetes cluster with Minikube.
 
 ```bash
 minikube start
 ```
-
-5. Create namespace:
+### 5. Create a Namespace
+Namespaces in Kubernetes allow you to divide cluster resources between multiple users.
 
 ```bash
 kubectl create namespace actions-runner-system
 ```
-
-6. Install cert-manager in your cluster. For more information, see "cert-manager."
+### 6. Install cert-manager
+cert-manager automates the management and issuance of TLS certificates.
 
 ```bash
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
 ```
 
-6. Install Helm which will help us install controllers
+### 7. Install Helm
+Helm is a package manager for Kubernetes, simplifying the deployment of applications and services.
 
 ```bash
 sudo snap install helm --classic
 ```
 
-7. Add repository and install helm chart
+### 8. Add the Actions Runner Controller Helm Repository and Install the Controller
+The Actions Runner Controller enables the use of self-hosted GitHub Actions runners within Kubernetes.
+
 ```bash
 helm repo add actions-runner-controller https://actions-runner-controller.github.io/actions-runner-controller
 
@@ -94,7 +102,8 @@ helm upgrade --install --namespace actions-runner-system --create-namespace\
   --wait actions-runner-controller actions-runner-controller/actions-runner-controller
 ```
 
-8. Create runnerdeployment.yaml file and add this code to it.
+### 9. Configure the Runner Deployment
+Create a runnerdeployment.yaml file to define your runner deployment.
 
 ```yaml
 apiVersion: actions.summerwind.dev/v1alpha1
@@ -113,20 +122,22 @@ spec:
         - x64
 ```
 
-9. Apply file to the kubernates cluster
+Apply the configuration:
 
 ```bash
 kubectl apply -f runnerdeployment.yaml
 ```
 
-10. Create service account and set permission
+### 10. Create a Service Account and Set Permissions
+A service account allows the GitHub Actions Runner to interact with the Kubernetes API.
 
 ```bash
 kubectl create serviceaccount -n actions-runner-system github-actions-runner
 kubectl create clusterrolebinding github-actions-runner --clusterrole=cluster-admin --serviceaccount=actions-runner-system:github-actions-runner
 ```
 
-11. Set roles for service account
+### 11. Assign Roles to the Service Account
+Define the roles and permissions required for the GitHub Actions Runner.
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -156,16 +167,15 @@ roleRef:
   kind: Role
   name: github-actions-runner-role
   apiGroup: rbac.authorization.k8s.io
-
 ```
 
-12. Apply roles to service account
-
+Apply the roles:
 ```bash
 kubectl apply -f github-actions-runner-rbac.yaml
 ```
 
-13. Configure horizontal scaling
+### 12. Configure Horizontal Scaling
+To ensure your runners scale automatically based on workflow demand, create a horizontalscaler.yaml file:
 
 ```yaml
 apiVersion: actions.summerwind.dev/v1alpha1
@@ -184,9 +194,17 @@ spec:
     repositoryNames:
     - Cadaservices/hng_boilerplate_nextjs
 ```
-
-14. Apply configuration
+Apply the configuration:
 
 ```bash
 kubectl apply -f horizontalscaler.yaml
+```
+
+### 13. Verify the Setup
+After applying all configurations, verify the deployment and scaling by checking the status of your pods and runner deployments:
+
+```bash
+kubectl get pods -n actions-runner-system
+kubectl get runnerdeployments -n actions-runner-system
+kubectl get horizontalrunnerautoscalers -n actions-runner-system
 ```
